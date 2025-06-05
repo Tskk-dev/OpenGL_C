@@ -2,6 +2,9 @@
 
 A repository for OpenGL experimentation
 ---
-TO-DO:
-- OBJ loading
+
+### Features:
+- .obj Parsing and loading
+
+### TO-DO:
 - Texture support
