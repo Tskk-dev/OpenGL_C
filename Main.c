@@ -1,5 +1,6 @@
-﻿// MADE BY TSKK-DEV 2025
-// LICENSED UNDER GPL3.0 
+﻿
+// MADE BY TSKK-DEV 2025
+// I
 
 
 #include <glad/glad.h>
@@ -88,12 +89,11 @@ int load_obj(const char* filename) {
                 face_count++;
             }
             else {
-                // Try vertex-only format: "f v1 v2 v3"
                 matches = sscanf_s(line + 2, "%u %u %u", &v[0], &v[1], &v[2]);
                 if (matches == 3) {
                     for (int i = 0; i < 3; i++) {
                         faces[face_count].v_idx[i] = v[i] - 1;
-                        faces[face_count].n_idx[i] = 0; // use default normal index 0
+                        faces[face_count].n_idx[i] = 0;
                     }
                     face_count++;
                 }
@@ -105,7 +105,6 @@ int load_obj(const char* filename) {
     }
     fclose(file);
 
-    // If no normals were loaded, create a default normal pointing up
     if (normal_count == 0) {
         normals[0].x = 0.0f;
         normals[0].y = 0.0f;
@@ -121,7 +120,6 @@ int load_obj(const char* filename) {
 //               Matrix helpers (column-major)                 //
 //-------------------------------------------------------------//
 
-// 4x4 identity matrix
 void mat4_identity(float* mat) {
     for (int i = 0; i < 16; i++) mat[i] = 0.0f;
     mat[0] = 1.0f;
@@ -130,7 +128,6 @@ void mat4_identity(float* mat) {
     mat[15] = 1.0f;
 }
 
-// Perspective projection matrix (fovy in degrees, aspect, near, far)
 void mat4_perspective(float* mat, float fovy, float aspect, float near, float far) {
     float f = 1.0f / tanf(fovy * 3.14159265f / 360.0f);
     mat[0] = f / aspect;
@@ -154,7 +151,6 @@ void mat4_perspective(float* mat, float fovy, float aspect, float near, float fa
     mat[15] = 0;
 }
 
-// Simple look-at view matrix from eye, center, up
 void vec3_sub(Vec3* result, Vec3 a, Vec3 b) {
     result->x = a.x - b.x;
     result->y = a.y - b.y;
@@ -212,7 +208,6 @@ void mat4_lookat(float* mat, Vec3 eye, Vec3 center, Vec3 up) {
 //-------------------------------------------------------------//
 int main() {
 
-
     if (!glfwInit()) {
         printf("Failed to initialize GLFW\n");
         return -1;
@@ -226,7 +221,7 @@ int main() {
     //                  Window instance generation                 //
     //-------------------------------------------------------------//
 
-    GLFWwindow* window = glfwCreateWindow(800, 600, "Tokyo Manji Gang", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(800, 600, "Hello Po bsit 1-1n", NULL, NULL);
     if (window == NULL) {
         printf("FATAL ERROR BOBO KA NU GINAGAWA MO\n");
         glfwTerminate();
@@ -255,116 +250,122 @@ int main() {
         return -1;
     }
 
-    // Flatten faces to vertex array with position + normal (6 floats)
-    float* mesh_data = malloc(face_count * 3 * 6 * sizeof(float));
-    if (!mesh_data) {
-        printf("Failed to allocate mesh data\n");
+    float* vertex_data = malloc(sizeof(float) * face_count * 3 * 6); // 3 verts per face, 6 floats per vertex
+    if (!vertex_data) {
+        printf("Memory allocation failed\n");
         glfwTerminate();
         return -1;
     }
 
-    int mesh_index = 0;
+    int idx = 0;
     for (int i = 0; i < face_count; i++) {
         for (int j = 0; j < 3; j++) {
-            Vec3 pos = vertices[faces[i].v_idx[j]];
-            Vec3 norm = normals[faces[i].n_idx[j]];
-
-            mesh_data[mesh_index++] = pos.x;
-            mesh_data[mesh_index++] = pos.y;
-            mesh_data[mesh_index++] = pos.z;
-
-            mesh_data[mesh_index++] = norm.x;
-            mesh_data[mesh_index++] = norm.y;
-            mesh_data[mesh_index++] = norm.z;
+            Vec3 v = vertices[faces[i].v_idx[j]];
+            Vec3 n = normals[faces[i].n_idx[j]];
+            vertex_data[idx++] = v.x;
+            vertex_data[idx++] = v.y;
+            vertex_data[idx++] = v.z;
+            vertex_data[idx++] = n.x;
+            vertex_data[idx++] = n.y;
+            vertex_data[idx++] = n.z;
         }
     }
 
     //-------------------------------------------------------------//
-    //                     Shader sources                          //
+    //                        Shaders                              //
     //-------------------------------------------------------------//
-    const char* vertex_shader_src = 
-          "#version 330 core\n"
-          "layout(location=0) in vec3 aPos;\n"
-          "layout(location=1) in vec3 aNormal;\n"
-          "\n"
-          "uniform mat4 projection;\n"
-          "uniform mat4 view;\n"
-          "\n"
-          "out vec3 Normal;\n"
-          "out vec3 FragPos;\n"
-          "\n"
-          "void main() {\n"
-          "    FragPos = aPos;\n"
-          "    Normal = normalize(aNormal);\n"
-          "    gl_Position = projection * view * vec4(aPos, 1.0);\n"
-          "}\n";
 
-    const char* fragment_shader_src = 
+    const char* vertex_shader_source =
+        "#version 330 core\n"
+        "layout(location = 0) in vec3 aPos;\n"
+        "layout(location = 1) in vec3 aNormal;\n"
+        "out vec3 Normal;\n"
+        "out vec3 FragPos;\n"
+        "uniform mat4 model;\n"
+        "uniform mat4 view;\n"
+        "uniform mat4 projection;\n"
+        "void main() {\n"
+        "   vec4 worldPos = model * vec4(aPos, 1.0);\n"
+        "   FragPos = worldPos.xyz;\n"
+        "   Normal = mat3(transpose(inverse(model))) * aNormal;\n"
+        "   gl_Position = projection * view * worldPos;\n"
+        "}\0";
+
+    const char* fragment_shader_source =
         "#version 330 core\n"
         "in vec3 Normal;\n"
         "in vec3 FragPos;\n"
         "out vec4 FragColor;\n"
+        "uniform vec3 viewPos;\n"
         "void main() {\n"
         "   vec3 lightDir = normalize(vec3(1.0, 1.0, 1.0));\n"
-        "   float diff = max(dot(normalize(Normal), lightDir), 0.0);\n"
-        "   vec3 diffuse = diff * vec3(0.7, 0.5, 0.3);\n"
-        "   vec3 ambient = vec3(0.2, 0.2, 0.2);\n"
-        "   FragColor = vec4(diffuse + ambient, 1.0);\n"
-        "}\n";
+        "   vec3 norm = normalize(Normal);\n"
+        "   float diff = max(dot(norm, lightDir), 0.0);\n"
+        "   vec3 diffuse = diff * vec3(1.0, 0.5, 0.31);\n"
+        "   vec3 ambient = vec3(0.1, 0.1, 0.1);\n"
+        "   vec3 viewDir = normalize(viewPos - FragPos);\n"
+        "   vec3 reflectDir = reflect(-lightDir, norm);\n"
+        "   float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);\n"
+        "   vec3 specular = spec * vec3(1.0);\n"
+        "   vec3 result = ambient + diffuse + specular;\n"
+        "   FragColor = vec4(result, 1.0);\n"
+        "}\0";
 
-    // Compile vertex shader
     unsigned int vertex_shader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertex_shader, 1, &vertex_shader_src, NULL);
+    glShaderSource(vertex_shader, 1, &vertex_shader_source, NULL);
     glCompileShader(vertex_shader);
     check_compile_errors(vertex_shader, "VERTEX");
 
-    // Compile fragment shader
     unsigned int fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragment_shader, 1, &fragment_shader_src, NULL);
+    glShaderSource(fragment_shader, 1, &fragment_shader_source, NULL);
     glCompileShader(fragment_shader);
     check_compile_errors(fragment_shader, "FRAGMENT");
 
-    // Link shaders into program
     unsigned int shader_program = glCreateProgram();
     glAttachShader(shader_program, vertex_shader);
     glAttachShader(shader_program, fragment_shader);
     glLinkProgram(shader_program);
     check_compile_errors(shader_program, "PROGRAM");
 
-    // Shaders can be deleted after linking
     glDeleteShader(vertex_shader);
     glDeleteShader(fragment_shader);
 
     //-------------------------------------------------------------//
-    //                         Setup VAO/VBO                        //
+    //                     Setup VAO/VBO                            //
     //-------------------------------------------------------------//
 
     unsigned int VAO, VBO;
-
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
 
     glBindVertexArray(VAO);
-
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, face_count * 3 * 6 * sizeof(float), mesh_data, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * face_count * 3 * 6, vertex_data, GL_STATIC_DRAW);
 
-    // Position attribute (location=0)
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
 
-    // Normal attribute (location=1)
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    free(mesh_data);
+    free(vertex_data);
+
+    //-------------------------------------------------------------//
+    //                Camera control variables                     //
+    //-------------------------------------------------------------//
+    float camera_angle = 0.005f;
+    float camera_radius = 5.0f;
 
     //-------------------------------------------------------------//
     //                      Render loop start                       //
     //-------------------------------------------------------------//
     glEnable(GL_DEPTH_TEST);
+
+    float model_matrix[16];
+    mat4_identity(model_matrix);
 
     while (!glfwWindowShouldClose(window)) {
         glClearColor(0.1f, 0.15f, 0.3f, 1.0f);
@@ -372,22 +373,27 @@ int main() {
 
         glUseProgram(shader_program);
 
-        // Set up projection and view matrices
-        float projection[16];
-        float view[16];
+        camera_angle += 0.0005f;
 
-        mat4_perspective(projection, 150.0f, 800.0f / 600.0f, 0.1f, 100.0f);
-
-        Vec3 eye = { 0.0f, 0.0f, 3.0f };
+        Vec3 eye = { camera_radius * sinf(camera_angle), 1.5f, camera_radius * cosf(camera_angle) };
         Vec3 center = { 0.0f, 0.0f, 0.0f };
         Vec3 up = { 0.0f, 1.0f, 0.0f };
+
+        float projection[16];
+        mat4_perspective(projection, 120.0f, 800.0f / 600.0f, 0.1f, 100.0f);
+
+        float view[16];
         mat4_lookat(view, eye, center, up);
 
-        // Pass matrices to shader uniforms
-        int proj_loc = glGetUniformLocation(shader_program, "projection");
+        int model_loc = glGetUniformLocation(shader_program, "model");
         int view_loc = glGetUniformLocation(shader_program, "view");
-        glUniformMatrix4fv(proj_loc, 1, GL_FALSE, projection);
+        int proj_loc = glGetUniformLocation(shader_program, "projection");
+        int viewpos_loc = glGetUniformLocation(shader_program, "viewPos");
+
+        glUniformMatrix4fv(model_loc, 1, GL_FALSE, model_matrix);
         glUniformMatrix4fv(view_loc, 1, GL_FALSE, view);
+        glUniformMatrix4fv(proj_loc, 1, GL_FALSE, projection);
+        glUniform3f(viewpos_loc, eye.x, eye.y, eye.z);
 
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLES, 0, face_count * 3);
@@ -397,7 +403,9 @@ int main() {
         glfwPollEvents();
     }
 
-    // Cleanup
+    //-------------------------------------------------------------//
+    //                         Cleanup                             //
+    //-------------------------------------------------------------//
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
     glDeleteProgram(shader_program);
